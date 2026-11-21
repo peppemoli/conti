@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Conti</title>
 <meta name="description" content="Entrate e uscite personali">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="theme-color" content="#2C4A50">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -164,6 +165,9 @@ main{padding-bottom:calc(env(safe-area-inset-bottom) + 96px)}
 .setup input{width:100%;font:inherit;font-size:16px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--text)}
 .setup .go{width:100%;margin-top:12px;padding:14px;border-radius:12px;background:var(--brand);color:var(--brand-ink);font-weight:600}
 .setup .err{color:var(--neg);font-size:14px;margin-top:10px;min-height:20px}
+.setup label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+.setup .alt{display:block;margin:18px auto 0;font-size:14px;color:var(--muted);text-decoration:underline}
+.setup .lock{font-size:40px;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -279,7 +283,7 @@ async function carica(fresh){
     const res = await fetch(url, {cache:'no-store'});
     const txt = await res.text();
     const d = JSON.parse(txt);
-    if (!d.ok) { S.errore = d.error === 'token' ? 'Token non valido' : 'Errore dal server'; if (d.error === 'token' && !S.dati) { S.token = ''; ls.del(K_TOKEN); } }
+    if (!d.ok) { S.errore = d.error === 'token' ? 'Accesso scaduto: inserisci di nuovo la password' : 'Errore dal server'; if (d.error === 'token') { S.token = ''; ls.del(K_TOKEN); } }
     else { prepara(d); ls.set(K_DATA, txt); }
   } catch(e) { S.errore = 'Offline: mostro gli ultimi dati scaricati'; }
   S.loading = false; render();
@@ -392,13 +396,38 @@ function renderStatus(){
   el.textContent = a ? 'Aggiornato ' + a.toLocaleDateString('it-IT', {day:'numeric', month:'short'}) + ' alle ' + a.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
 }
 
+let conToken = false;
 function setupHTML(){
-  return '<div class="setup"><h1>Conti</h1><p>Incolla il token del tuo web app: resta salvato solo su questo dispositivo.</p>' +
+  if (conToken) return '<div class="setup"><div class="lock">🔑</div><h1>Conti</h1><p>Incolla il token del web app: resta salvato solo su questo dispositivo.</p>' +
     '<input id="tok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Token">' +
-    '<button class="go" id="tokGo">Collega</button><div class="err">' + esc(S.errore || '') + '</div></div>';
+    '<button class="go" id="tokGo">Collega</button><div class="err">' + esc(S.errore || '') + '</div>' +
+    '<button class="alt" id="altLogin">Accedi con la password</button></div>';
+  return '<form class="setup" id="loginForm" method="post" action="#"><div class="lock">🔒</div><h1>Conti</h1><p>Accedi con la tua password. iPhone e Mac possono salvarla nel Portachiavi e compilarla con Face ID.</p>' +
+    '<label for="usr">Utente</label><input id="usr" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" value="giuseppe">' +
+    '<label for="pwd">Password</label><input id="pwd" name="password" type="password" autocomplete="current-password" required>' +
+    '<button class="go" id="loginGo" type="submit">Accedi</button><div class="err" id="loginErr">' + esc(S.errore || '') + '</div>' +
+    '<button class="alt" type="button" id="altTok">Ho il token</button></form>';
 }
+function entra(token){ S.token = token; ls.set(K_TOKEN, token); S.errore = ''; render(); carica(false); caricaListe(); if (coda().length) invia(); }
 function bindSetup(){
-  $('#tokGo').onclick = () => { const v = $('#tok').value.trim(); if (!v) return; S.token = v; ls.set(K_TOKEN, v); S.errore = ''; render(); carica(false); caricaListe(); };
+  if (conToken) {
+    $('#tokGo').onclick = () => { const v = $('#tok').value.trim(); if (v) entra(v); };
+    $('#altLogin').onclick = () => { conToken = false; S.errore = ''; render(); };
+    return;
+  }
+  $('#altTok').onclick = () => { conToken = true; S.errore = ''; render(); };
+  $('#loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const pwd = $('#pwd').value, btn = $('#loginGo');
+    if (!pwd) return;
+    btn.disabled = true; btn.textContent = 'Verifico…'; $('#loginErr').textContent = '';
+    try {
+      const d = await (await fetch(API, { method:'POST', body:JSON.stringify({ login:pwd }) })).json();
+      if (d.ok && d.token) { entra(d.token); return; }
+      $('#loginErr').textContent = d.msg || 'Accesso non riuscito';
+    } catch(err) { $('#loginErr').textContent = 'Nessuna connessione: per il primo accesso serve la rete'; }
+    btn.disabled = false; btn.textContent = 'Accedi';
+  });
 }
 
 // ---------- periodo ----------
