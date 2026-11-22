@@ -244,6 +244,32 @@ button.row .t2{white-space:normal}
 .sw.on{background:var(--brand)}.sw.on::after{left:21px}
 .setbox{padding:12px 16px}
 .foot{text-align:center;font-size:12.5px;color:var(--faint);padding:22px 16px 0}
+
+/* Statistiche */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
+.kp{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0}
+.kk{font-size:12.5px;color:var(--muted)}.kv{font-size:20px;font-weight:650;margin-top:4px}.ks{font-size:12px;color:var(--faint);margin-top:2px}
+.kc{display:flex;justify-content:space-between;gap:6px;font-size:13px;margin-top:5px}.kc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+.andam{width:100%;height:auto;display:block;margin-top:10px}
+.andam .gl{stroke:var(--line);stroke-width:1}.andam .be{fill:var(--pos)}.andam .bu{fill:var(--neg)}.andam .pl{opacity:.32}
+.andam .pv{stroke:var(--text);stroke-width:2;opacity:.55}.andam .selbg{fill:var(--wash)}
+.andam .ml{font-size:10px;fill:var(--muted);text-anchor:middle}.andam .ml.oggi{fill:var(--brand);font-weight:700}
+.aleg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin:8px 0 4px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.dot.be{background:var(--pos)}.dot.bu{background:var(--neg)}.dot.pv{background:var(--text);opacity:.55;height:3px;vertical-align:2px}.dot.pl{background:var(--faint);opacity:.6}
+.adet{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-size:14px}
+.adet>div{display:flex;justify-content:space-between;padding:4px 0}.adet small{color:var(--muted)}
+.ahint{font-size:12px;color:var(--faint);padding:6px 0 4px}
+.prev{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+.prev th{font-size:12px;color:var(--muted);font-weight:500;text-align:right;padding:4px 0}
+.prev td{padding:7px 0;border-top:1px solid var(--line)}.prev td.num,.prev th{text-align:right;white-space:nowrap;padding-left:12px;font-size:13.5px}.prev td:first-child{font-size:13.5px}
+.prev tr.pi td{color:var(--muted)}.prev tr.tot td{font-weight:650}
+.psal{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0 2px;font-size:15px}.psal b{font-size:19px}
+.row.cst .amt{text-align:right}.row.cst .amt small{color:var(--faint);font-size:12px}
+.subs{background:var(--bg);padding:6px 16px 10px 62px;font-size:14px}
+.subs>div{display:flex;justify-content:space-between;padding:5px 0}
+.subs .vedi{margin-top:6px;color:var(--brand);font-weight:500;font-size:14px;background:none;border:0;padding:4px 0}
 </style>
 </head>
 <body>
@@ -308,7 +334,7 @@ const ICONE = {
   'Benefit e sussidi':'🎫','Regali ricevuti':'🎁','Ricavi da vendite':'🏷️','Rimborsi':'↩️','Stipendio':'💼','Vincite':'🍀','Prestito ricevuto':'🤝'
 };
 const SUB_ICONE = {'Carburante':'⛽','Benzina':'⛽','Mutuo':'🏠','Pulizie':'🧽','Babysitter':'🧸','Farmacia':'💊','Dentista':'🦷',
-  'Luce':'💡','Gas':'🔥','Internet e telefono':'📶','Abbonamenti digitali':'📺','Voli':'✈️','Alloggio':'🛏️','Padel':'🎾','Sci':'⛷️',
+  'Luce':'💡','Gas':'🔥','Internet':'📶','Telefono':'📱','Abbonamenti digitali':'📺','Voli':'✈️','Alloggio':'🛏️','Padel':'🎾','Sci':'⛷️',
   'Bar e drink':'☕','Pranzi e cene':'🍽️','Taxi e Uber':'🚕','Treni':'🚆','Parcheggi':'🅿️','Tab':'🚬','Trattenute':'🧾','Welfare aziendale':'🎫'};
 
 // ---------- utilità ----------
@@ -334,7 +360,7 @@ const S = {
   token: ls.get(K_TOKEN, ''),
   dati: null, righe: [], serie: {}, oggi: '', loading: false, errore: '',
   mode: pref.mode || 'mese', vista: pref.vista || 'mia', y: 0, m: 0, limite: 400,
-  tab: 'home', filtro: '', nascondi: !!pref.nascondi, tema: pref.tema || 'auto'
+  tab: 'home', anaM: -1, anaCat: '', filtro: '', nascondi: !!pref.nascondi, tema: pref.tema || 'auto'
 };
 function salvaPref(){ ls.set(K_PREF, JSON.stringify({mode:S.mode, vista:S.vista, nascondi:S.nascondi, tema:S.tema})); }
 function applicaTema(){ const h = document.documentElement; if (S.tema === 'scuro' || S.tema === 'chiaro') h.setAttribute('data-tema', S.tema); else h.removeAttribute('data-tema'); }
@@ -565,7 +591,139 @@ function barreHTML(){
     v.map(x => '<i style="height:' + (x > 0 ? Math.max(x / mx * 100, 2).toFixed(1) : 0) + '%"></i>').join('') + '</div><div class="bl">' +
     v.map((_, i) => '<span>' + lab(i) + '</span>').join('') + '</div><div class="sum2">Picco: <b>' + (mese ? (pk + 1) + ' ' + MESI[S.m - 1] : MESI[pk]) + '</b> · <span class="num">' + eur(r2(mx)) + '</span></div></div>';
 }
-const analisiHTML = () => ciambellaHTML() + barreHTML();
+// ---------- Statistiche (tab Analisi) ----------
+const k2 = r => r.cat + '|' + r.sub;
+const mesiCh = y => { const oy = Number(S.oggi.slice(0, 4)); return y < oy ? 12 : y > oy ? 0 : Number(S.oggi.slice(5, 7)) - 1; };   // mesi già chiusi
+/** Per mese dell'anno y: entrate/uscite reali e pianificate (valore secondo Mia quota/Totale). */
+function annoDati(y){
+  const M = Array.from({length:12}, () => ({ent:0, usc:0, pe:0, pu:0}));
+  for (const r of S.righe) {
+    if (!r.data.startsWith(y + '-')) continue;
+    const m = M[Number(r.data.slice(5, 7)) - 1], v = valore(r), p = r.stato === 'Pianificata';
+    if (isEnt(r)) { if (p) m.pe += v; else m.ent += v; } else { if (p) m.pu -= v; else m.usc -= v; }
+  }
+  M.forEach(m => { for (const k in m) m[k] = r2(m[k]); });
+  return M;
+}
+const somma = (M, k, a, b) => r2(M.slice(a === undefined ? 0 : a, b === undefined ? 12 : b).reduce((s, m) => s + m[k], 0));
+/** Importi per mese e voce (cat|sub) dell'anno y: {ent:{}, usc:{}} per reali e pianificate separatamente. */
+function voci(y){
+  const R = Array.from({length:12}, () => ({}) ), P = Array.from({length:12}, () => ({}) );
+  for (const r of S.righe) {
+    if (!r.data.startsWith(y + '-')) continue;
+    const i = Number(r.data.slice(5, 7)) - 1, T = r.stato === 'Pianificata' ? P[i] : R[i], k = (isEnt(r) ? 'E|' : 'U|') + k2(r);
+    T[k] = (T[k] || 0) + (isEnt(r) ? valore(r) : -valore(r));
+  }
+  return {R, P};
+}
+/** Previsione di fine anno: mesi chiusi = reale; mese in corso e futuri = pianificate, e per le voci senza
+ *  pianificate lo stesso mese dell'anno prima (per il mese in corso solo la parte non ancora spesa). */
+function previsione(y){
+  const ch = mesiCh(y), cur = voci(y), pre = voci(y - 1), o = {realeE:0, realeU:0, pianE:0, pianU:0, stimaE:0, stimaU:0};
+  for (let i = 0; i < 12; i++) {
+    const R = cur.R[i], P = cur.P[i], A = pre.R[i];
+    for (const k in R) if (k[0] === 'E') o.realeE += R[k]; else o.realeU += R[k];
+    if (i < ch) continue;
+    for (const k in P) if (k[0] === 'E') o.pianE += P[k]; else o.pianU += P[k];
+    for (const k in A) {
+      if (P[k] || !(A[k] > 0)) continue;
+      const resto = Math.max(A[k] - (i === ch ? (R[k] || 0) : 0), 0);
+      if (k[0] === 'E') o.stimaE += resto; else o.stimaU += resto;
+    }
+  }
+  for (const k in o) o[k] = r2(o[k]);
+  o.E = r2(o.realeE + o.pianE + o.stimaE); o.U = r2(o.realeU + o.pianU + o.stimaU); o.saldo = r2(o.E - o.U);
+  return o;
+}
+
+function kpiHTML(y){
+  const ch = mesiCh(y), oy = Number(S.oggi.slice(0, 4));
+  if (y > oy) return '';
+  const M = annoDati(y), ent = somma(M, 'ent'), usc = somma(M, 'usc'), saldo = r2(ent - usc);
+  const nMed = ch > 0 ? ch : 1, med = r2(somma(M, 'usc', 0, nMed) / nMed);
+  const L = { a: y + '-01-01', b: y < oy ? y + '-12-31' : S.oggi }, cur = spesePer(L.a, L.b), prev = spesePer((y - 1) + L.a.slice(4), (y - 1) + L.b.slice(4));
+  const cresc = Object.keys(cur).map(c => [c, r2(cur[c] - (prev[c] || 0))]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const tile = (k, v, s, cls) => '<div class="kp"><div class="kk">' + k + '</div><div class="kv num' + (cls ? ' ' + cls : '') + '">' + v + '</div>' + (s ? '<div class="ks">' + s + '</div>' : '') + '</div>';
+  return '<div class="sech"><b>' + y + (y === oy ? ' finora' : '') + '</b><span>' + (S.vista === 'mia' ? 'mia quota' : 'totale famiglia') + '</span></div><div class="kpis">' +
+    tile('Saldo', mk(eur(saldo)), 'entrate ' + mk(eur(ent)), saldo < 0 ? 'neg' : 'pos') +
+    tile('Risparmio', ent > 0 ? Math.round(saldo / ent * 100) + '%' : '–', 'del totale entrate', saldo < 0 ? 'neg' : '') +
+    tile('Spesa media al mese', mk(eur(med)), ch > 0 && y === oy ? 'sui ' + ch + ' mesi chiusi' : (y < oy ? 'su 12 mesi' : 'mese in corso')) +
+    '<div class="kp"><div class="kk">In crescita vs ' + (y - 1) + '</div>' + (cresc.length ? cresc.map(x => '<div class="kc"><span>' + (ICONE[x[0]] || '🔹') + ' ' + esc(x[0]) +
+      '</span><b class="num neg">+' + mk(nf(x[1])) + '</b></div>').join('') : '<div class="ks">nessuna categoria</div>') + '</div></div>';
+}
+
+function andamentoHTML(y){
+  const M = annoDati(y), A = annoDati(y - 1), ch = mesiCh(y);
+  const mx = Math.max(1, ...M.map(m => Math.max(m.ent + m.pe, m.usc + m.pu)), ...A.map(m => m.usc));
+  const W = 360, H = 150, gw = W / 12, bw = 10, sc = v => Math.max(v, 0) / mx * (H - 8);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + (H + 16) + '" class="andam" role="img" aria-label="Entrate e uscite per mese ' + y + '">';
+  for (let i = 0; i < 4; i++) s += '<line x1="0" x2="' + W + '" y1="' + (H - (H - 8) * i / 3).toFixed(1) + '" y2="' + (H - (H - 8) * i / 3).toFixed(1) + '" class="gl"/>';
+  M.forEach((m, i) => {
+    const x = i * gw + (gw - 2 * bw - 2) / 2, sel = S.anaM === i;
+    const bar = (x0, real, plan, cls) => {
+      const hr = sc(real), hp = sc(plan); let o = '';
+      if (hr > 0) o += '<rect x="' + x0.toFixed(1) + '" y="' + (H - hr).toFixed(1) + '" width="' + bw + '" height="' + hr.toFixed(1) + '" rx="2" class="' + cls + '"/>';
+      if (hp > 0) o += '<rect x="' + x0.toFixed(1) + '" y="' + (H - hr - hp).toFixed(1) + '" width="' + bw + '" height="' + hp.toFixed(1) + '" rx="2" class="' + cls + ' pl"/>';
+      return o;
+    };
+    if (sel) s += '<rect x="' + (i * gw).toFixed(1) + '" y="0" width="' + gw.toFixed(1) + '" height="' + H + '" class="selbg"/>';
+    s += bar(x, m.ent, m.pe, 'be') + bar(x + bw + 2, m.usc, m.pu, 'bu');
+    if (A[i].usc > 0) { const yy = (H - sc(A[i].usc)).toFixed(1); s += '<line x1="' + (x + bw + 1).toFixed(1) + '" x2="' + (x + 2 * bw + 3).toFixed(1) + '" y1="' + yy + '" y2="' + yy + '" class="pv"/>'; }
+    s += '<text x="' + (i * gw + gw / 2).toFixed(1) + '" y="' + (H + 13) + '" class="ml' + (i === ch && y === Number(S.oggi.slice(0, 4)) ? ' oggi' : '') + '">' + MESI[i].charAt(0).toUpperCase() + '</text>';
+    s += '<rect x="' + (i * gw).toFixed(1) + '" y="0" width="' + gw.toFixed(1) + '" height="' + (H + 16) + '" fill="transparent" data-anam="' + i + '"/>';
+  });
+  s += '</svg>';
+  const i = S.anaM, m = i >= 0 ? M[i] : null;
+  const det = m ? '<div class="adet"><b>' + cap(MESI[i]) + ' ' + y + '</b>' +
+    '<div><span><i class="dot be"></i>Entrate</span><span class="num">' + mk(eur(m.ent)) + (m.pe ? ' <small>+ ' + mk(eur(m.pe)) + ' pian.</small>' : '') + '</span></div>' +
+    '<div><span><i class="dot bu"></i>Uscite</span><span class="num">' + mk(eur(m.usc)) + (m.pu ? ' <small>+ ' + mk(eur(m.pu)) + ' pian.</small>' : '') + '</span></div>' +
+    '<div><span><i class="dot pv"></i>Uscite ' + (y - 1) + '</span><span class="num">' + mk(eur(A[i].usc)) + '</span></div>' +
+    '<div><span>Saldo</span><b class="num">' + mk(eur(r2(m.ent + m.pe - m.usc - m.pu))) + '</b></div></div>'
+    : '<div class="ahint">Tocca un mese per i dettagli</div>';
+  return '<div class="sech"><b>Andamento ' + y + '</b></div><div class="group pad">' + s +
+    '<div class="aleg"><span><i class="dot be"></i>Entrate</span><span><i class="dot bu"></i>Uscite</span><span><i class="dot pv"></i>Uscite ' + (y - 1) + '</span><span><i class="dot pl"></i>Pianificate</span></div>' + det + '</div>';
+}
+
+function catStatHTML(){
+  const L = limitiPeriodo(), cur = {}, prev = {}, sub = {};
+  for (const r of S.righe) {
+    if (r.stato === 'Pianificata' || isEnt(r)) continue;
+    const v = -valore(r);
+    if (r.data >= L.a && r.data <= L.b) { cur[r.cat] = (cur[r.cat] || 0) + v; (sub[r.cat] = sub[r.cat] || {})[r.sub] = ((sub[r.cat] || {})[r.sub] || 0) + v; }
+    else if (r.data >= L.pa && r.data <= L.pb) prev[r.cat] = (prev[r.cat] || 0) + v;
+  }
+  const cats = Object.keys(cur).filter(c => r2(cur[c]) > 0)
+    .sort((a, b) => (cur[b] || 0) - (cur[a] || 0));
+  if (!cats.length) return '';
+  const lab = S.mode === 'anno' ? String(S.y - 1) : cap(MESI[S.m - 1]) + ' ' + (S.y - 1);
+  return '<div class="sech"><b>Categorie</b><span>vs ' + esc(lab) + (L.b < L.f ? ' (stesso periodo)' : '') + '</span></div><div class="group">' + cats.map(c => {
+    const v = r2(cur[c] || 0), p = r2(prev[c] || 0), d = r2(v - p), open = S.anaCat === c;
+    const dl = p > 0 ? (d > 0 ? '+' : d < 0 ? '−' : '') + mk(nf(d)) + ' € · ' + (d >= 0 ? '+' : '−') + Math.abs(Math.round(d / p * 100)) + '%' : (v > 0 ? 'nuova' : '');
+    let h = '<button class="row cst" data-acat="' + esc(c) + '"><div class="ico">' + (ICONE[c] || '🔹') + '</div><div class="txt"><div class="t1">' + esc(c) + '</div>' +
+      '<div class="t2 ' + (d > 0 && p > 0 ? 'neg' : d < 0 ? 'pos' : '') + '">' + dl + '</div></div><div class="amt"><div class="num">' + mk(eur(v)) + '</div><small class="num">' + (p > 0 ? mk(eur(p)) : '') + '</small></div></button>';
+    if (open) {
+      const ss = Object.entries(sub[c] || {}).filter(x => r2(x[1]) > 0).sort((a, b) => b[1] - a[1]);
+      h += '<div class="subs">' + ss.map(x => '<div><span>' + (SUB_ICONE[x[0]] || '·') + ' ' + esc(x[0]) + '</span><span class="num">' + mk(eur(r2(x[1]))) + '</span></div>').join('') +
+        '<button class="vedi" data-filtro="cat:' + esc(c) + '" data-gomov="1">Vedi i movimenti</button></div>';
+    }
+    return h;
+  }).join('') + '</div>';
+}
+
+function previsioneHTML(y){
+  const oy = Number(S.oggi.slice(0, 4));
+  if (y < oy) return '';
+  const o = previsione(y), A = annoDati(y - 1), aE = somma(A, 'ent'), aU = somma(A, 'usc');
+  const r = (k, e, u, cls) => '<tr class="' + (cls || '') + '"><td>' + k + '</td><td class="num">' + mk(eur(e)) + '</td><td class="num">' + mk(eur(u)) + '</td></tr>';
+  return '<div class="sech"><b>Previsione fine ' + y + '</b></div><div class="group pad"><table class="prev"><thead><tr><th></th><th>Entrate</th><th>Uscite</th></tr></thead><tbody>' +
+    r('Reale finora', o.realeE, o.realeU) + r('Pianificate (ricorrenze)', o.pianE, o.pianU, 'pi') + r('Stima variabili da ' + (y - 1), o.stimaE, o.stimaU, 'pi') +
+    r('Totale previsto', o.E, o.U, 'tot') + r(String(y - 1) + ' effettivo', aE, aU, 'pi') + '</tbody></table>' +
+    '<div class="psal"><span>Saldo previsto</span><b class="num ' + (o.saldo < 0 ? 'neg' : 'pos') + '">' + mk(eur(o.saldo)) + '</b></div>' +
+    '<div class="ahint">Mesi chiusi = reale. Per il resto dell\'anno: le ricorrenze pianificate e, per le voci senza ricorrenza, quanto speso nello stesso mese del ' + (y - 1) + '.</div></div>';
+}
+
+const analisiHTML = () => kpiHTML(S.y) + andamentoHTML(S.y) + previsioneHTML(S.y) + catStatHTML() + ciambellaHTML();
+
 
 // Impostazioni
 function impHTML(){
@@ -906,11 +1064,13 @@ function apri(id){ $(id).classList.add('open'); }
 function chiudiSchermate(){ document.querySelectorAll('.screen.open').forEach(s => s.classList.remove('open')); $('#q').blur(); if (document.activeElement) document.activeElement.blur(); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-act],[data-vista],[data-mode],[data-f],[data-e],[data-pref],[data-tab],[data-filtro],[data-tema],.row[data-id]');
+  const t = e.target.closest('[data-anam],[data-acat],[data-act],[data-vista],[data-mode],[data-f],[data-e],[data-pref],[data-tab],[data-filtro],[data-tema],.row[data-id]');
   if (!t) { if (e.target.id === 'scrim') chiudiPicker(false); return; }
+  if (t.dataset.anam !== undefined) { const i = Number(t.dataset.anam); S.anaM = S.anaM === i ? -1 : i; render(); return; }
+  if (t.dataset.acat !== undefined) { S.anaCat = S.anaCat === t.dataset.acat ? '' : t.dataset.acat; render(); return; }
   if (t.dataset.pref) { rapido(t.dataset.pref); return; }
   if (t.dataset.tab) { S.tab = t.dataset.tab; render(); window.scrollTo(0, 0); return; }
-  if (t.dataset.filtro !== undefined) { S.filtro = t.dataset.filtro; S.limite = 400; render(); return; }
+  if (t.dataset.filtro !== undefined) { S.filtro = t.dataset.filtro; S.limite = 400; if (t.dataset.gomov) { S.tab = 'mov'; window.scrollTo(0, 0); } render(); return; }
   if (t.dataset.tema) { S.tema = t.dataset.tema; salvaPref(); applicaTema(); render(); return; }
   if (t.dataset.f) { leggiCampi(); const k = t.dataset.f, v = t.dataset.v;
     if (k === 'tipo' && F.tipo !== v) { F.cat = ''; F.sub = 'Generica'; }
