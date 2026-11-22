@@ -83,7 +83,7 @@ main{padding-bottom:calc(env(safe-area-inset-bottom) + var(--navh) + 44px)}
 .group{margin:0 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .row{position:relative;display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:62px}
 .row + .row::before{content:'';position:absolute;top:0;left:66px;right:0;border-top:1px solid var(--line)}
-.row.plan{opacity:.5}
+.row.plan{opacity:.45}
 button.row{width:100%;text-align:left}
 button.row:active{background:var(--chip)}
 .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:19px;flex:none;background:var(--neg-bg)}
@@ -372,6 +372,7 @@ function prepara(d){
   S.righe = d.righe.map(r => ({ id:r[0], data:r[1], cat:r[2], sub:r[3], nota:r[4], imp:r[5], perc:r[6], segno:r[7], stato:r[8], serie:r[9], sez:r[10],
     tipo:r[11] || (r[7] > 0 ? 'Entrata' : 'Uscita'), evento:r[12] || '', det:r[13] || '', k: norm(r[2] + ' ' + r[3] + ' ' + r[4] + ' ' + (r[12] || '')) }));
   S.righe.sort((a, b) => a.data < b.data ? 1 : a.data > b.data ? -1 : (a.id < b.id ? 1 : -1));
+  S.righe.forEach(r => { if (r.stato === 'Pianificata' && r.data <= S.oggi) r.stato = 'Valida'; });   // conta dal giorno in cui accade
   S.serie = {};
   (d.ric || []).forEach(x => { S.serie[x[0]] = {id:x[0], freq:x[1], inizio:x[2], fine:x[3], stato:x[4], tipo:x[5], cat:x[6], sub:x[7], imp:x[8], perc:x[9], nota:x[10]}; });
   if (!S.y) { const [y, m] = S.oggi.split('-').map(Number); S.y = y; S.m = m; }
@@ -514,8 +515,10 @@ function navHTML(){
 
 // Home: azioni rapide, ultimi movimenti, categorie rispetto all'anno scorso
 function homeHTML(){
-  const ult = S.righe.filter(r => r.stato !== 'Pianificata' && r.data <= S.oggi).slice(0, 5);
-  return (ult.length ? '<div class="sech"><b>Ultimi movimenti</b><button data-tab="mov">Vedi tutti</button></div><div class="group">' + ult.map(rigaHTML).join('') + '</div>' : '') +
+  const ult = S.righe.filter(r => r.stato !== 'Pianificata').slice(0, 6);
+  const pros = S.righe.filter(r => r.stato === 'Pianificata').slice(-3).reverse();
+  return (pros.length ? '<div class="sech"><b>In arrivo</b><span>non ancora nei totali</span></div>' + listaHTML(pros, null, 3) : '') +
+    (ult.length ? '<div class="sech"><b>Ultimi movimenti</b><button data-tab="mov">Vedi tutti</button></div>' + listaHTML(ult, null, 6) : '') +
     categorieHTML();
 }
 function categorieHTML(){
@@ -547,12 +550,8 @@ function chipsHTML(sel){
   return '<div class="scroll-x f">' + c('', 'Tutti') + c('ent', 'Entrate') + c('usc', 'Uscite') + cats.map(k => c('cat:' + k, (ICONE[k] ? ICONE[k] + ' ' : '') + k)).join('') + '</div>';
 }
 function movHTML(sel){
-  const fut = sel.filter(r => r.data > S.oggi && r.stato === 'Pianificata');
-  const apriFut = S.mode === 'mese' || S.futAperte;
-  const vis = filtra(apriFut ? sel : sel.filter(r => !(r.data > S.oggi && r.stato === 'Pianificata')));
-  const futBtn = fut.length && S.mode === 'anno' ? '<button class="fut" data-act="fut">' + (apriFut ? '▴ Nascondi' : '▾ Mostra') + ' ' + fut.length +
-    ' pianificate future (fino al ' + fmtBreve(fut[0].data) + ')</button>' : '';
-  return chipsHTML(sel) + futBtn + (vis.length ? listaHTML(vis, false, S.limite) + (vis.length > S.limite ? '<button class="more" data-act="more">Mostra altri ' + (vis.length - S.limite) + '</button>' : '')
+  const vis = filtra(sel);
+  return chipsHTML(sel) + (vis.length ? listaHTML(vis, false, S.limite) + (vis.length > S.limite ? '<button class="more" data-act="more">Mostra altri ' + (vis.length - S.limite) + '</button>' : '')
     : '<div class="empty">Nessun movimento in questo periodo.</div>');
 }
 
