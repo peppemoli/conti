@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Conti">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
+<link rel="icon" href="icons/icon-192.png?v=2">
 <style>
 :root{
   color-scheme:light;
@@ -166,7 +166,7 @@ button.row:active{background:var(--chip)}
 .savebar button:disabled{opacity:.4}
 .danger{width:100%;margin-top:10px;padding:13px;border-radius:12px;background:var(--neg-bg);color:var(--neg);font-weight:600}
 .hint{font-size:13px;color:var(--muted);margin-top:6px}
-.links{display:flex;gap:8px;margin-top:22px}
+.links{display:flex;gap:8px;margin-top:12px}
 .links button{flex:1;padding:12px;border-radius:12px;background:var(--chip);font-size:14.5px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + var(--navh) + 44px);z-index:30;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:#23272B;color:#F1F3F4;font-size:14px;box-shadow:var(--shadow);opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none}
 .toast.on{opacity:1;transform:none;pointer-events:auto}
@@ -914,6 +914,7 @@ function apriNuovo(tipo){
   F = F && F.tenere ? F : nuovoF(); F.tenere = false;
   if (tipo && F.tipo !== tipo) { F.tipo = tipo; F.cat = ''; F.sub = 'Generica'; F.det = ''; }
   $('#newTitle').textContent = 'Nuovo movimento'; renderNuovo(); apri('#scrNew');
+  const im = $('#fImp'); if (im) { im.focus({ preventScroll:true }); setTimeout(() => { if (document.activeElement !== im && $('#scrNew').classList.contains('open')) im.focus({ preventScroll:true }); }, 320); }
 }
 const tipoLista = () => F.tipo === 'Storno' ? 'Storno' : F.tipo;
 function renderNuovo(){
@@ -923,16 +924,17 @@ function renderNuovo(){
   const isDet = catOk && (L.det || {})[F.cat + '|' + F.sub];
   const pr = (L.prefNomi || []).map(n => '<button class="chip pref" data-pref="' + esc(n) + '">' + esc(n) + '</button>').join('');
   $('#newBody').innerHTML = '<div class="form">' +
-    (pr ? '<div class="lab">Rapidi</div><div class="scroll-x">' + pr + '</div>' : '') +
     '<div class="lab">Tipo</div><div class="seg3">' + [['Uscita','Uscita'],['Entrata','Entrata'],['Storno','Rimborso']].map(([v, t]) =>
       '<button data-f="tipo" data-v="' + v + '" class="' + (F.tipo === v ? 'on' : '') + '">' + t + '</button>').join('') + '</div>' +
     '<div class="lab">Importo totale</div><label class="amtin"><input id="fImp" inputmode="decimal" placeholder="0,00" value="' + esc(F.imp) + '" autocomplete="off"><span>€</span></label>' +
     '<div class="lab">A tuo carico</div><div class="seg3">' + ['100% personale','50% familiare'].map(v =>
       '<button data-f="perc" data-v="' + v + '" class="' + (F.perc === v ? 'on' : '') + '">' + v + '</button>').join('') + '</div>' +
+    (pr ? '<div class="lab">Rapidi</div><div class="scroll-x">' + pr + '</div>' : '') +
     '<div class="lab">' + (F.tipo === 'Storno' ? 'Categoria della spesa rimborsata' : 'Categoria') + '</div><div class="grid">' + cats.map(c => {
       const n = pulisci(c), e = c === NUOVA ? '➕' : c.slice(0, c.length - n.length).trim() || '🔹';
       return '<button class="tile' + (F.cat === c ? ' on' : '') + '" data-f="cat" data-v="' + esc(c) + '"><span class="e">' + e + '</span>' + esc(c === NUOVA ? 'Nuova…' : n) + '</button>'; }).join('') + '</div>' +
     (F.cat === NUOVA ? '<input class="fld" id="fCatN" style="margin-top:8px" placeholder="Nome della nuova categoria" value="' + esc(F.catNuova) + '">' : '') +
+    '<div class="links"><button data-act="stip">💼 Stipendio</button><button data-act="evento">🏷 ' + (L.evento ? 'Chiudi evento' : 'Evento') + '</button></div>' +
     (F.cat ? '<div class="lab">Sottocategoria</div><div class="chips">' + subs.map(x => '<button class="chip' + (F.sub === x ? ' on' : '') + '" data-f="sub" data-v="' + esc(x) + '">' + esc(x) + '</button>').join('') + '</div>' +
       (F.sub === NUOVA ? '<input class="fld" id="fSubN" style="margin-top:8px" placeholder="Nome della nuova sottocategoria" value="' + esc(F.subNuova) + '">' : '') : '') +
     (isDet ? '<div class="lab">Detraibile 730?</div><div class="seg3">' + ['Sì','No'].map(v => '<button data-f="det" data-v="' + v + '" class="' + (F.det === v ? 'on' : '') + '">' + v + '</button>').join('') + '</div>' : '') +
@@ -941,7 +943,6 @@ function renderNuovo(){
     '<div class="row2"><div><div class="lab">Data</div><input class="fld" type="date" id="fData" value="' + F.data + '"></div>' +
     '<div><div class="lab">Si ripete</div><select class="fld" id="fRip">' + FREQS.map(x => '<option' + (F.rip === x ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></div></div>' +
     (F.rip !== 'Mai' ? '<div class="lab">Fino a (vuoto = nessuna fine)</div><input class="fld" type="date" id="fFine" value="' + F.fine + '"><div class="hint">La data scelta sopra è la prima volta; le successive restano pianificate finché non arrivano.</div>' : '') +
-    '<div class="links"><button data-act="stip">💼 Stipendio</button><button data-act="evento">🏷 ' + (L.evento ? 'Chiudi evento' : 'Evento') + '</button></div>' +
     '</div>';
   aggiornaSalva();
 }
