@@ -342,7 +342,8 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nf = v => { const [i, d] = Math.abs(v).toFixed(2).split('.'); return i.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + d; };
 const eur = v => (v < 0 ? '−' : '') + nf(v) + ' €';
-const r2 = v => Math.round(v * 100) / 100;
+// arrotondamento al centesimo "da ragioniere": il 5 va sempre per eccesso (9,115 → 9,12; −9,115 → −9,12)
+const r2 = v => { const a = Math.round(Math.abs(v) * 100 + 1e-6) / 100; return v < 0 ? -a : a; };
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } },
