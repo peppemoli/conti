@@ -340,8 +340,8 @@ const SUB_ICONE = {'Carburante':'⛽','Benzina':'⛽','Mutuo':'🏠','Pulizie':'
 // ---------- utilità ----------
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf = v => { const [i, d] = Math.abs(v).toFixed(2).split('.'); return i.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + d; };
-const eur = v => (v < 0 ? '−' : '') + nf(v) + ' €';
+const nf = v => { const [i, d] = Math.abs(r2(v)).toFixed(2).split('.'); return i.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + d; };
+const eur = v => (r2(v) < 0 ? '−' : '') + nf(v) + ' €';
 // arrotondamento al centesimo "da ragioniere": il 5 va sempre per eccesso (9,115 → 9,12; −9,115 → −9,12)
 const r2 = v => { const a = Math.round(Math.abs(v) * 100 + 1e-6) / 100; return v < 0 ? -a : a; };
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -378,7 +378,10 @@ function prepara(d){
   (d.ric || []).forEach(x => { S.serie[x[0]] = {id:x[0], freq:x[1], inizio:x[2], fine:x[3], stato:x[4], tipo:x[5], cat:x[6], sub:x[7], imp:x[8], perc:x[9], nota:x[10]}; });
   if (!S.y) { const [y, m] = S.oggi.split('-').map(Number); S.y = y; S.m = m; }
 }
-const valore = r => r2((S.vista === 'mia' ? r.imp * r.perc : r.imp) * r.segno);
+// Dal 1/1/2027 la tua quota resta esatta (es. 9,115) e si arrotonda solo quello che si vede, totali compresi;
+// fino al 2026 la quota di ogni riga è arrotondata al centesimo, come registrata allora.
+const QUOTA_ESATTA_DAL = '2027-01-01';
+const valore = r => { const v = (S.vista === 'mia' ? r.imp * r.perc : r.imp) * r.segno; return r.data >= QUOTA_ESATTA_DAL ? v : r2(v); };
 const inPeriodo = r => S.mode === 'anno' ? r.data.startsWith(S.y + '-') : r.data.startsWith(S.y + '-' + String(S.m).padStart(2,'0') + '-');
 
 // ---------- dati ----------
@@ -481,7 +484,7 @@ function spesePer(da, a){
   const m = {};
   for (const r of S.righe) {
     if (r.stato === 'Pianificata' || r.data < da || r.data > a || isEnt(r)) continue;
-    m[r.cat] = r2((m[r.cat] || 0) - valore(r));
+    m[r.cat] = (m[r.cat] || 0) - valore(r);
   }
   return m;
 }
@@ -602,7 +605,6 @@ function annoDati(y){
     const m = M[Number(r.data.slice(5, 7)) - 1], v = valore(r), p = r.stato === 'Pianificata';
     if (isEnt(r)) { if (p) m.pe += v; else m.ent += v; } else { if (p) m.pu -= v; else m.usc -= v; }
   }
-  M.forEach(m => { for (const k in m) m[k] = r2(m[k]); });
   return M;
 }
 const somma = (M, k, a, b) => r2(M.slice(a === undefined ? 0 : a, b === undefined ? 12 : b).reduce((s, m) => s + m[k], 0));
@@ -631,8 +633,8 @@ function previsione(y){
       if (k[0] === 'E') o.stimaE += resto; else o.stimaU += resto;
     }
   }
+  o.E = o.realeE + o.pianE + o.stimaE; o.U = o.realeU + o.pianU + o.stimaU; o.saldo = o.E - o.U;
   for (const k in o) o[k] = r2(o[k]);
-  o.E = r2(o.realeE + o.pianE + o.stimaE); o.U = r2(o.realeU + o.pianU + o.stimaU); o.saldo = r2(o.E - o.U);
   return o;
 }
 

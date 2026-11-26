@@ -1,5 +1,5 @@
 // Service worker: tiene in cache l'app (non i dati, che restano nel localStorage della pagina).
-const CACHE = 'conti-v8';
+const CACHE = 'conti-v9';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
