@@ -270,6 +270,11 @@ button.row .t2{white-space:normal}
 .subs{background:var(--bg);padding:6px 16px 10px 62px;font-size:14px}
 .subs>div{display:flex;justify-content:space-between;padding:5px 0}
 .subs .vedi{margin-top:6px;color:var(--brand);font-weight:500;font-size:14px;background:none;border:0;padding:4px 0}
+
+.row.stip{cursor:pointer}.row.stip .s{color:var(--faint)}
+.stipd{background:var(--bg);padding-left:14px}
+.srow{display:flex;justify-content:space-between;padding:7px 0;font-size:14.5px;border-top:1px solid var(--line)}.srow:first-child{border-top:0}
+.srow.tot{font-weight:650}.srow small{font-size:12px;margin-left:6px}
 </style>
 </head>
 <body>
@@ -361,7 +366,7 @@ const S = {
   token: ls.get(K_TOKEN, ''),
   dati: null, righe: [], serie: {}, oggi: '', loading: false, errore: '',
   mode: pref.mode || 'mese', vista: pref.vista || 'mia', y: 0, m: 0, limite: 400,
-  tab: 'home', anaM: -1, anaCat: '', filtro: '', nascondi: !!pref.nascondi, tema: pref.tema || 'auto'
+  tab: 'home', apriStip: '', anaM: -1, anaCat: '', filtro: '', nascondi: !!pref.nascondi, tema: pref.tema || 'auto'
 };
 function salvaPref(){ ls.set(K_PREF, JSON.stringify({mode:S.mode, vista:S.vista, nascondi:S.nascondi, tema:S.tema})); }
 function applicaTema(){ const h = document.documentElement; if (S.tema === 'scuro' || S.tema === 'chiaro') h.setAttribute('data-tema', S.tema); else h.removeAttribute('data-tema'); }
@@ -437,6 +442,25 @@ function rigaHTML(r){
     '<div class="amt"><div class="v num ' + (v < 0 ? 'neg' : 'pos') + '">' + eur(v) + '</div>' + s + '</div></div>';
 }
 
+// Stipendio: Lordo e Trattenute dello stesso giorno diventano una sola riga "Stipendio" con il netto (tap = dettaglio).
+const isStip = r => r.cat === 'Stipendio' && (r.sub === 'Lordo' || r.sub === 'Trattenute');
+function unisciStip(buf){
+  const P = buf.filter(isStip);
+  if (!P.some(r => r.sub === 'Lordo') || !P.some(r => r.sub === 'Trattenute')) return buf;
+  const v = {stip:true, id:P.map(r => r.id).join(','), parti:P, data:P[0].data, stato:P.every(r => r.stato === 'Pianificata') ? 'Pianificata' : 'Valida'};
+  const out = []; let messo = false;
+  for (const r of buf) { if (isStip(r)) { if (!messo) { out.push(v); messo = true; } } else out.push(r); }
+  return out;
+}
+function rigaStipHTML(x){
+  const som = sub => x.parti.filter(r => r.sub === sub).reduce((a, r) => a + valore(r), 0);
+  const lordo = som('Lordo'), tratt = som('Trattenute'), net = lordo + tratt, open = S.apriStip === x.id;
+  return '<div class="row stip' + (x.stato === 'Pianificata' ? ' plan' : '') + '" data-stip="' + esc(x.id) + '">' +
+    '<div class="ico in" aria-hidden="true">' + icona(x.parti[0]) + '</div>' +
+    '<div class="txt"><div class="t1">Stipendio</div><div class="t2">Netto' + (open ? '' : ' · lordo ' + mk(eur(lordo))) + '</div></div>' +
+    '<div class="amt"><div class="v num ' + (net < 0 ? 'neg' : 'pos') + '">' + eur(net) + '</div><div class="s">' + (open ? '▴' : '▾') + ' dettaglio</div></div></div>' +
+    (open ? '<div class="stipd">' + x.parti.map(rigaHTML).join('') + '</div>' : '');
+}
 function listaHTML(righe, conAnno, limite){
   if (!righe.length) return '';
   let h = '', giorno = '', mese = '', n = 0, buf = [];
@@ -445,7 +469,7 @@ function listaHTML(righe, conAnno, limite){
     const fut = buf.every(r => r.stato === 'Pianificata');
     h += '<div class="day' + (fut ? ' future' : '') + '"><span>' + esc(fmtData(giorno, conAnno)) + '</span>' +
          (fut ? '<span class="tot">pianificato</span>' : '<span class="tot num ' + (tot < 0 ? 'neg' : 'pos') + '">' + eur(tot) + '</span>') + '</div>' +
-         '<div class="group">' + buf.map(rigaHTML).join('') + '</div>';
+         '<div class="group">' + unisciStip(buf).map(x => x.stip ? rigaStipHTML(x) : rigaHTML(x)).join('') + '</div>';
     buf = []; };
   for (const r of righe) {
     if (n >= limite) break;
@@ -724,7 +748,20 @@ function previsioneHTML(y){
     '<div class="ahint">Mesi chiusi = reale. Per il resto dell\'anno: le ricorrenze pianificate e, per le voci senza ricorrenza, quanto speso nello stesso mese del ' + (y - 1) + '.</div></div>';
 }
 
-const analisiHTML = () => kpiHTML(S.y) + andamentoHTML(S.y) + previsioneHTML(S.y) + catStatHTML() + ciambellaHTML();
+function stipendioHTML(){
+  const L = limitiPeriodo(), cur = {Lordo:0, Trattenute:0}, prev = {Lordo:0, Trattenute:0};
+  for (const r of S.righe) {
+    if (!isStip(r) || r.stato === 'Pianificata') continue;
+    if (r.data >= L.a && r.data <= L.b) cur[r.sub] += valore(r); else if (r.data >= L.pa && r.data <= L.pb) prev[r.sub] += valore(r);
+  }
+  if (!cur.Lordo && !cur.Trattenute) return '';
+  const lab = S.mode === 'anno' ? String(S.y - 1) : cap(MESI[S.m - 1]) + ' ' + (S.y - 1);
+  const riga = (k, v, p, b) => { const d = r2(v - p); return '<div class="srow' + (b ? ' tot' : '') + '"><span>' + k + '</span><span class="num">' + mk(eur(v)) +
+    (p ? ' <small class="' + (d >= 0 ? 'pos' : 'neg') + '">' + (d >= 0 ? '+' : '−') + mk(nf(d)) + '</small>' : '') + '</span></div>'; };
+  return '<div class="sech"><b>Stipendio</b><span>vs ' + esc(lab) + (L.b < L.f ? ' (stesso periodo)' : '') + '</span></div><div class="group pad">' +
+    riga('Lordo', cur.Lordo, prev.Lordo) + riga('Trattenute', cur.Trattenute, prev.Trattenute) + riga('Netto', cur.Lordo + cur.Trattenute, prev.Lordo + prev.Trattenute, true) + '</div>';
+}
+const analisiHTML = () => kpiHTML(S.y) + stipendioHTML() + andamentoHTML(S.y) + previsioneHTML(S.y) + catStatHTML() + ciambellaHTML();
 
 
 // Impostazioni
@@ -1067,8 +1104,9 @@ function apri(id){ $(id).classList.add('open'); }
 function chiudiSchermate(){ document.querySelectorAll('.screen.open').forEach(s => s.classList.remove('open')); $('#q').blur(); if (document.activeElement) document.activeElement.blur(); }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-anam],[data-acat],[data-act],[data-vista],[data-mode],[data-f],[data-e],[data-pref],[data-tab],[data-filtro],[data-tema],.row[data-id]');
+  const t = e.target.closest('[data-stip],[data-anam],[data-acat],[data-act],[data-vista],[data-mode],[data-f],[data-e],[data-pref],[data-tab],[data-filtro],[data-tema],.row[data-id]');
   if (!t) { if (e.target.id === 'scrim') chiudiPicker(false); return; }
+  if (t.dataset.stip !== undefined) { S.apriStip = S.apriStip === t.dataset.stip ? '' : t.dataset.stip; render(); return; }
   if (t.dataset.anam !== undefined) { const i = Number(t.dataset.anam); S.anaM = S.anaM === i ? -1 : i; render(); return; }
   if (t.dataset.acat !== undefined) { S.anaCat = S.anaCat === t.dataset.acat ? '' : t.dataset.acat; render(); return; }
   if (t.dataset.pref) { rapido(t.dataset.pref); return; }
